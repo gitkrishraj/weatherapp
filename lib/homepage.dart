@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:weatherapp/api.dart';
 import 'package:weatherapp/weathermodel.dart';
- 
+ import'package:geolocator/geolocator.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -15,6 +15,18 @@ class _HomePageState extends State<HomePage> {
    ApiResponse? response;
    bool inProgress = false;
    String message = "Search for the location to get weather data";
+
+
+
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocationWeather();
+  }
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +43,14 @@ class _HomePageState extends State<HomePage> {
                 }
               },
             ),
+
+
+                 IconButton(
+                icon: const Icon(Icons.my_location),
+                onPressed: _getCurrentLocationWeather,
+              ),
+
+
           ],
           ),
 
@@ -190,7 +210,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  _getWeatherData(String location) async {
+ Future<void> _getWeatherData(String location) async {
     setState(() {
       inProgress = true;
     });
@@ -200,6 +220,63 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       setState(() {
         message = "Failed to get weather ";
+        response = null;
+      });
+    } finally {
+      setState(() {
+        inProgress = false;
+      });
+    }
+  }
+
+
+
+ Future<void> _getCurrentLocationWeather() async {
+    setState(() {
+      inProgress = true;
+    });
+
+    try {
+      bool serviceEnabled;
+      LocationPermission permission;
+
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          message = "Location services are disabled.";
+          inProgress = false;
+        });
+        return;
+      }
+
+      permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            message = "Location permissions are denied.";
+            inProgress = false;
+          });
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          message = "Location permissions are permanently denied.";
+          inProgress = false;
+        });
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      String location = "${position.latitude},${position.longitude}";
+      response = await WeatherApi().getCurrentWeather(location);
+    } catch (e) {
+      setState(() {
+        message = "Failed to get weather for current location";
         response = null;
       });
     } finally {
